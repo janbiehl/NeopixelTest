@@ -20,6 +20,8 @@
 #define EXTERNAL_LED_PIN 1
 #define EXTERNAL_LED_LENGTH 150
 
+#define FPS 1000 / 30
+
 enum LightEffect 
 {
     unknown,
@@ -69,6 +71,7 @@ private:
     Adafruit_NeoPixel _onboardLed;
     Adafruit_NeoPixel _externalLed;
 
+    unsigned long nextExecution = 0;
     unsigned long pixelPrevious = 0;        // Previous Pixel Millis
     unsigned long patternPrevious = 0;      // Previous Pattern Millis
     int           patternCurrent = 0;       // Current Pattern Number
@@ -83,10 +86,11 @@ public:
     LedController(Preferences* preferences);
     void setState(LightStateUpdate stateUpdate);
     const LightState* getState();
-    // void theaterChaseRainbow(uint8_t wait);
-    // void theaterChase(uint32_t color, int wait);
-    // void colorWipe(uint32_t color, int wait);
+    void setBrightness(uint8_t newBrightness);
+    void setColor(uint32_t newColor);
     void setLightEffect(LightEffect newEffect);
+    void setOff();
+    void setOn();
     void setup();
     void loop();
     void renderSolid();

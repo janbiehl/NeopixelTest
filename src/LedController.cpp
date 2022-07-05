@@ -12,48 +12,40 @@ void LedController::setState(LightStateUpdate stateUpdate)
 {
     Serial.println("\nLed controller state will be updated");
 
-    if (stateUpdate.lightOnPresent)
-    {
-        _state.lightOn = stateUpdate.lightOn;
-        Serial.printf("Light switched: %d\n", _state.lightOn);
-    }   
 
     if (stateUpdate.brightnessPresent)
     {
         _state.brightness = stateUpdate.brightness;
-        _onboardLed.setBrightness(_state.brightness);
-        _externalLed.setBrightness(_state.brightness);
-        Serial.printf("Brightness: %d\n", _state.brightness);
+        setBrightness(_state.brightness);
     }
 
-    if (stateUpdate.redPresent)
+    if (stateUpdate.redPresent || stateUpdate.greenPresent || stateUpdate.bluePresent || stateUpdate.whitePresent)
     {
         _state.red = stateUpdate.red;
-        Serial.printf("Red: %d\n", _state.red);
-    }
-    
-    if (stateUpdate.greenPresent)
-    {
         _state.green = stateUpdate.green;
-        Serial.printf("Green: %d\n", _state.green);
+        _state.blue = stateUpdate.blue;
+        _state.white = stateUpdate.white;
+        
+        uint32_t color = Adafruit_NeoPixel::Color(_state.red, _state.green, _state.blue, _state.white);
+        setColor(color);
     }
     
-    if (stateUpdate.bluePresent)
-    {
-        _state.blue = stateUpdate.blue;
-        Serial.printf("Blue: %d\n", _state.blue);
-    }
-
-    if (stateUpdate.whitePresent)
-    {
-        _state.white = stateUpdate.white;
-        Serial.printf("White: %d\n", _state.white);
-    }
-
     if (stateUpdate.lightEffectPresent)
     {
         setLightEffect(stateUpdate.lightEffect);
     }
+
+    if (stateUpdate.lightOnPresent)
+    {
+        _state.lightOn = stateUpdate.lightOn;
+
+        if (_state.lightOn && !_lastState.lightOn){
+            setOn();
+        }
+        else if (!_state.lightOn && _lastState.lightOn){
+            setOff();
+        }
+    }   
 }
 
 const LightState* LedController::getState()
@@ -61,13 +53,65 @@ const LightState* LedController::getState()
     return &_state;
 }
 
+void LedController::setBrightness(uint8_t newBrightness)
+{
+    Serial.printf("Brightness: %d\n", _state.brightness);
+    _onboardLed.setBrightness(_state.brightness);
+    _externalLed.setBrightness(_state.brightness);
+}
+
+void LedController::setColor(uint32_t newColor)
+{
+    Serial.printf("R: %d; G: %d, B: %d, W: %d\n", _state.red, _state.green, _state.blue, _state.white);
+
+    for (size_t i = 0; i < EXTERNAL_LED_LENGTH; i++)
+    {
+        _externalLed.setPixelColor(i, LedUtils::Color(&_state));
+    }
+
+    _externalLed.show();
+}
+
 void LedController::setLightEffect(LightEffect newEffect)
 {
     if (_state.lightEffect == newEffect)
         return; // The effect did not change
 
+    Serial.printf("light effect changed to: '%s'\n", LedUtils::EffectNameFromEnum(newEffect));
+
     _state.lightEffect = newEffect;
     _state.lightEffectChanged = true;
+}
+
+void LedController::setOff()
+{
+    Serial.println("light turned off");
+    
+    // light switched off
+    _onboardLed.setPixelColor(0, 0, 0, 0, 0);
+    _onboardLed.show();
+
+    for (size_t i = 0; i < EXTERNAL_LED_LENGTH; i++)
+    {
+        _externalLed.setPixelColor(i, 0, 0, 0, 0);
+    }
+
+    _externalLed.show();
+}
+
+void LedController::setOn()
+{
+    Serial.println("light turned on");
+
+    _onboardLed.setPixelColor(0, _state.red, _state.green, _state.blue, _state.white);
+    _onboardLed.show();
+
+    for (size_t i = 0; i < EXTERNAL_LED_LENGTH; i++)
+    {
+        _externalLed.setPixelColor(i, LedUtils::Color(&_state));
+    }
+
+    _externalLed.show();
 }
 
 void LedController::setup()
@@ -76,32 +120,20 @@ void LedController::setup()
     _externalLed.setBrightness(_state.brightness);
     _onboardLed.begin();
     _externalLed.begin();
+
+    setLightEffect(LightEffect::solid);
 }
 
 void LedController::loop()
 {
-    // rising edge detection
-    if (_state.lightOn && !_lastState.lightOn)
-    {
-        // light switched on
+    auto now = millis();
 
-        _onboardLed.setPixelColor(0, _state.red, _state.green, _state.blue, _state.white);
-        _onboardLed.show();
-    }
-    else if (!_state.lightOn && _lastState.lightOn)
-    {
-        // light switched off
-        _onboardLed.setPixelColor(0, 0, 0, 0, 0);
-        _onboardLed.show();
+    if (now < nextExecution)
+        return;
 
-        for (size_t i = 0; i < EXTERNAL_LED_LENGTH; i++)
-        {
-            _externalLed.setPixelColor(i, 0, 0, 0, 0);
-        }
+    nextExecution = now + FPS;
 
-        _externalLed.show();
-    }
-    else if (_state.lightOn)
+    if(_state.lightOn)
     {
         switch (_state.lightEffect)
         {
