@@ -1,5 +1,3 @@
-#define MQTT_MAX_PACKET_SIZE 512
-
 extern "C" {
     #include "freertos/FreeRTOS.h"
     #include "freertos/timers.h"
@@ -47,6 +45,11 @@ void mqttAutoDiscovery()
     jsonDoc["brightness"] = true;
     auto supportedColorModesArray =jsonDoc.createNestedArray(F("supported_color_modes"));
     supportedColorModesArray.add(F("rgbw"));
+    
+    jsonDoc["effect"] = true;
+    auto effectListArray = jsonDoc.createNestedArray(F("effect_list"));
+    effectListArray.add(F("solid"));
+    effectListArray.add(F("rainbow"));
     //supportedColorModesArray.add(F("rgb"));
     //jsonDoc["optimistic"] = false;
 
@@ -82,6 +85,17 @@ void sendStateUpdate()
     jsonDoc[JSON_COLOR_KEY][JSON_GREEN_KEY] = state->green;
     jsonDoc[JSON_COLOR_KEY][JSON_BLUE_KEY] = state->blue;
     jsonDoc[JSON_COLOR_KEY][JSON_WHITE_KEY] = state->white;
+
+    if (state->lightEffect == LightEffect::solid){
+        jsonDoc[JSON_EFFECT_KEY] = "solid";
+    }
+    else if (state->lightEffect == LightEffect::rainbow){
+        jsonDoc[JSON_EFFECT_KEY] = "rainbow";
+    }
+    else{
+        // Solid as fallback
+        jsonDoc[JSON_EFFECT_KEY] = "solid";
+    }
 
     char buffer[512];
     size_t numberOfBytes = serializeJson(jsonDoc, buffer);
@@ -232,10 +246,29 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
             }
         }
 
+        if (jsonDoc.containsKey(JSON_EFFECT_KEY))
+        {
+            stateUpdate.lightEffectPresent = true;
+            
+            auto effectString = jsonDoc[JSON_EFFECT_KEY].as<String>();
+            
+            if (effectString.equals("solid")){
+                stateUpdate.lightEffect = LightEffect::solid;
+            }
+            else if (effectString.equals("rainbow")){
+                stateUpdate.lightEffect = LightEffect::rainbow;
+            }
+            else
+            {
+                stateUpdate.lightEffect = unknown;
+                stateUpdate.lightEffectPresent = false;
+                Serial.printf("light effect: '%s' is not supported\n", effectString);
+            }
+        }
+
         _ledController.setState(stateUpdate);
     }
 
-    delay(1000);
     sendStateUpdate();
 }
 
