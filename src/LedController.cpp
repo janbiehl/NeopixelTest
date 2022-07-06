@@ -63,6 +63,10 @@ void LedController::setBrightness(uint8_t newBrightness)
 void LedController::setColor(uint32_t newColor)
 {
     Serial.printf("R: %d; G: %d, B: %d, W: %d\n", _state.red, _state.green, _state.blue, _state.white);
+    
+    _onboardLed.setPixelColor(0, LedUtils::Color(&_state));
+
+    _onboardLed.show();
 
     for (size_t i = 0; i < EXTERNAL_LED_LENGTH; i++)
     {
