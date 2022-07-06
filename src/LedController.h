@@ -30,20 +30,20 @@ enum LightEffect
 
 struct LightStateUpdate
 {
-    bool lightOnPresent;
-    bool lightOn;
-    bool redPresent;
-    byte red;
-    bool greenPresent;
-    byte green;
-    bool bluePresent;
-    byte blue;
-    bool whitePresent;
-    byte white;
-    bool brightnessPresent;
-    byte brightness;
-    bool lightEffectPresent;
-    LightEffect lightEffect;
+    bool lightOnPresent = false;;
+    bool lightOn = false;
+    bool redPresent = false;
+    byte red = 0;
+    bool greenPresent = false;
+    byte green = 0;
+    bool bluePresent = false;
+    byte blue = 0;
+    bool whitePresent = false;
+    byte white = 0;
+    bool brightnessPresent = false;
+    byte brightness = 0;
+    bool lightEffectPresent = false;
+    LightEffect lightEffect = LightEffect::unknown;
 };
 
 struct LightState 
@@ -64,7 +64,7 @@ class LedController
 private:
     Preferences* _preferences;
     LightState _lastState;
-    LightState _state = { .lightOn = false, .red = 255, .green = 0, .blue = 0, .white = 0, .brightness = 100, .lightEffect = LightEffect::solid };
+    LightState _state = { .lightOn = false, .red = 0, .green = 0, .blue = 0, .white = 255, .brightness = 120, .lightEffect = LightEffect::solid };
 
     Adafruit_NeoPixel _onboardLed;
     Adafruit_NeoPixel _externalLed;
