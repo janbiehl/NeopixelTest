@@ -10,16 +10,22 @@ LedController::LedController(Preferences* preferences) :
 
 void LedController::setState(LightStateUpdate stateUpdate)
 {
-    Serial.println("\nLed controller state will be updated");
+    Serial.println(F("\nLed controller state will be updated"));
 
     if (stateUpdate.brightnessPresent)
     {
+#if DEBUG_LIGHT
+        Serial.println(F("There is brightness information"));
+#endif
         _state.brightness = stateUpdate.brightness;
         setBrightness(_state.brightness);
     }
 
     if (stateUpdate.redPresent || stateUpdate.greenPresent || stateUpdate.bluePresent || stateUpdate.whitePresent)
     {
+#if DEBUG_LIGHT
+        Serial.println(F("There is some color information"));
+#endif
         _state.red = stateUpdate.red;
         _state.green = stateUpdate.green;
         _state.blue = stateUpdate.blue;
@@ -31,11 +37,17 @@ void LedController::setState(LightStateUpdate stateUpdate)
     
     if (stateUpdate.lightEffectPresent)
     {
+#if DEBUG_LIGHT
+        Serial.println(F("There is light effect information"));
+#endif
         setLightEffect(stateUpdate.lightEffect);
     }
 
     if (stateUpdate.lightOnPresent)
     {
+#if DEBUG_LIGHT
+        Serial.println(F("There is state information"));
+#endif
         _state.lightOn = stateUpdate.lightOn;
 
         if (_state.lightOn && !_lastState.lightOn){
@@ -54,14 +66,18 @@ const LightState* LedController::getState()
 
 void LedController::setBrightness(uint8_t newBrightness)
 {
+#if DEBUG_LIGHT
     Serial.printf("Brightness: %d\n", _state.brightness);
+#endif
     _onboardLed.setBrightness(_state.brightness);
     _externalLed.setBrightness(_state.brightness);
 }
 
 void LedController::setColor(uint32_t newColor)
 {
+#if DEBUG_LIGHT
     Serial.printf("R: %d; G: %d, B: %d, W: %d\n", _state.red, _state.green, _state.blue, _state.white);
+#endif
     
     _onboardLed.setPixelColor(0, LedUtils::Color(&_state));
 
@@ -80,7 +96,9 @@ void LedController::setLightEffect(LightEffect newEffect)
     if (_state.lightEffect == newEffect)
         return; // The effect did not change
 
+#if DEBUG_LIGHT
     Serial.printf("light effect changed to: '%s'\n", LedUtils::EffectNameFromEnum(newEffect));
+#endif
 
     _state.lightEffect = newEffect;
     _state.lightEffectChanged = true;
@@ -88,7 +106,9 @@ void LedController::setLightEffect(LightEffect newEffect)
 
 void LedController::setOff()
 {
-    Serial.println("light turned off");
+#if DEBUG_LIGHT
+    Serial.println(F("light turned off"));
+#endif
     
     // light switched off
     _onboardLed.setPixelColor(0, 0, 0, 0, 0);
@@ -104,7 +124,9 @@ void LedController::setOff()
 
 void LedController::setOn()
 {
-    Serial.println("light turned on");
+#if DEBUG_LIGHT
+    Serial.println(F("light turned on"));
+#endif
 
     _onboardLed.setPixelColor(0, _state.red, _state.green, _state.blue, _state.white);
     _onboardLed.show();

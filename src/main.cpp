@@ -26,7 +26,7 @@ unsigned long nextExecution;
 
 void mqttAutoDiscovery()
 {
-    Serial.println("Preparing MQTT auto discovery for Homeassistant");
+    Serial.println(F("sending MQTT auto discovery for Homeassistant"));
     StaticJsonDocument<512> jsonDoc;
 
     auto topic = DeviceUtils::GetBaseTopic(&_preferences);
@@ -53,12 +53,19 @@ void mqttAutoDiscovery()
     char buffer[512];
     size_t numberOfBytes = serializeJson(jsonDoc, buffer);
 
+#if DEBUG_MQTT 
+
+    serializeJsonPretty(jsonDoc, Serial);
+    Serial.println(F(""));
+
+#endif
+
     _mqttClient.publish(discoveryTopic.c_str(), 0, false, buffer, numberOfBytes);
 }
 
 void sendStateUpdate()
 {
-    Serial.println("Sending a light state update to MQTT");
+    Serial.println(F("Sending a light state update to MQTT"));
     StaticJsonDocument<512> jsonDoc;
     JsonObject jsonObject = jsonDoc.to<JsonObject>();
 
@@ -90,25 +97,29 @@ void sendStateUpdate()
     char buffer[512];
     size_t numberOfBytes = serializeJson(jsonDoc, buffer);
 
-    Serial.println("Current light state is: ");
-    serializeJsonPretty(jsonDoc, Serial);
-
     auto topic = DeviceUtils::GetStateTopic(&_preferences).c_str();
 
-    Serial.println(topic);
+#if DEBUG_MQTT
+    
+    Serial.printf("Sending the state update to: '%s'", topic);
+    Serial.println(F("Light state for MQTT: "));
+    serializeJsonPretty(jsonDoc, Serial);
+    Serial.println(F(""));
+
+#endif
 
     _mqttClient.publish(topic, 0, true, buffer, numberOfBytes);
 }
 
 void connectToWifi() 
 {
-    Serial.println("Connecting to Wi-Fi...");
+    Serial.println(F("Connecting to Wi-Fi..."));
     WiFi.begin(SSID_NAME, SSID_PASSWORD);
 }
 
 void connectToMqtt()
 {
-    Serial.println("connecting to MQTT...");
+    Serial.println(F("connecting to MQTT..."));
     _mqttClient.connect();
 }
 
@@ -117,13 +128,13 @@ void wifiEvent(WiFiEvent_t event)
     switch(event) 
     {
         case SYSTEM_EVENT_STA_GOT_IP:
-            Serial.println("WiFi connected");
-            Serial.println("IP address: ");
+            Serial.println(F("WiFi connected"));
+            Serial.println(F("IP address: "));
             Serial.println(WiFi.localIP());
             connectToMqtt();
             break;
         case SYSTEM_EVENT_STA_DISCONNECTED:
-            Serial.println("WiFi lost connection");
+            Serial.println(F("WiFi lost connection"));
             xTimerStop(_mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
             xTimerStart(_wifiReconnectTimer, 0);
             break;
@@ -131,9 +142,10 @@ void wifiEvent(WiFiEvent_t event)
 }
 
 void onMqttConnected(bool sessionPresent) {
-    Serial.println("Connected to MQTT.");
+    Serial.println(F("Connected to MQTT."));
 
     _mqttClient.subscribe(DeviceUtils::GetCommandTopic(&_preferences).c_str(), 0);
+    
     mqttAutoDiscovery();
 
     delay(500);
@@ -143,7 +155,7 @@ void onMqttConnected(bool sessionPresent) {
 
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) 
 {
-    Serial.println("Disconnected from MQTT.");
+    Serial.println(F("Disconnected from MQTT."));
 
     if (WiFi.isConnected()) {
         xTimerStart(_mqttReconnectTimer, 0);
@@ -152,33 +164,49 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
 
 void onMqttSubscribe(uint16_t packetId, uint8_t qos) 
 {
-
+#if DEBUG_MQTT
+    Serial.println(F("Subscribe acknowledged."));
+    Serial.print(F("  packetId: "));
+    Serial.println(packetId);
+    Serial.print(F("  qos: "));
+    Serial.println(qos);
+#endif
 }
 
 void onMqttUnsubscribe(uint16_t packetId) 
 {
-    Serial.println("Unsubscribe acknowledged.");
-    Serial.print("  packetId: ");
+#if DEBUG_MQTT
+    Serial.println(F("Unsubscribe acknowledged."));
+    Serial.print(F("  packetId: "));
     Serial.println(packetId);
+#endif
 }
 
 void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) 
 {
-    Serial.println("MQTT message received");
+    Serial.println(F("MQTT message received"));
 
     StaticJsonDocument<512> jsonDoc;
     deserializeJson(jsonDoc, payload, len);
 
-#if DEBUG
+#if DEBUG_MQTT
     serializeJsonPretty(jsonDoc, Serial);
+    Serial.println(F(""));
 #endif
 
-
-    if (strcmp(topic, DeviceUtils::GetCommandTopic(&_preferences).c_str()) == 0)
+    auto commandTopic = DeviceUtils::GetCommandTopic(&_preferences).c_str();
+    if (strcmp(topic, commandTopic) == 0)
     {
-        LightStateUpdate stateUpdate;
+#if DEBUG_MQTT
+        Serial.printf("\nthere was a mqtt message at '%s'\n", commandTopic);
+#endif
+        LightStateUpdate stateUpdate = LightStateUpdate();
 
-        if (jsonDoc.containsKey(JSON_STATE_KEY)){
+        if (jsonDoc.containsKey(JSON_STATE_KEY))
+        {
+#if DEBUG_MQTT
+            Serial.println(F("Message contains state information"));
+#endif
             stateUpdate.lightOnPresent = true;
 
             auto state = jsonDoc[JSON_STATE_KEY];
@@ -190,30 +218,52 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
 
         if (jsonDoc.containsKey(JSON_BRIGHTNESS_KEY))
         {
+#if DEBUG_MQTT
+            Serial.println(F("Message contains brightness information"));
+#endif
             stateUpdate.brightnessPresent = true;
             stateUpdate.brightness = jsonDoc[JSON_BRIGHTNESS_KEY];
         }
 
         if (jsonDoc.containsKey(JSON_COLOR_KEY))
         {
+#if DEBUG_MQTT
+            Serial.println(F("Message contains color information"));
+#endif
             JsonVariant colorVariant = jsonDoc[JSON_COLOR_KEY];
 
-            if (colorVariant.containsKey(JSON_RED_KEY)){
+            if (colorVariant.containsKey(JSON_RED_KEY))
+            {
+#if DEBUG_MQTT
+                Serial.println(F("Message contains color red information"));
+#endif
                 stateUpdate.redPresent = true;
                 stateUpdate.red = colorVariant[JSON_RED_KEY];
             }
 
-            if (colorVariant.containsKey(JSON_GREEN_KEY)){
+            if (colorVariant.containsKey(JSON_GREEN_KEY))
+            {
+#if DEBUG_MQTT
+                Serial.println(F("Message contains color green information"));
+#endif
                 stateUpdate.greenPresent = true;
                 stateUpdate.green = colorVariant[JSON_GREEN_KEY];
             }
 
-            if (colorVariant.containsKey(JSON_BLUE_KEY)){
+            if (colorVariant.containsKey(JSON_BLUE_KEY))
+            {
+#if DEBUG_MQTT
+                Serial.println(F("Message contains color blue information"));
+#endif
                 stateUpdate.bluePresent = true;
                 stateUpdate.blue = colorVariant[JSON_BLUE_KEY];
             }
 
-            if (colorVariant.containsKey(JSON_WHITE_KEY)){
+            if (colorVariant.containsKey(JSON_WHITE_KEY))
+            {
+#if DEBUG_MQTT
+                Serial.println(F("Message contains color white information"));
+#endif
                 stateUpdate.whitePresent = true;
                 stateUpdate.white = colorVariant[JSON_WHITE_KEY];
             }
@@ -221,6 +271,9 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
 
         if (jsonDoc.containsKey(JSON_EFFECT_KEY))
         {
+#if DEBUG_MQTT
+            Serial.println(F("Message contains effect information"));
+#endif
             stateUpdate.lightEffectPresent = true;
             
             auto effectString = jsonDoc[JSON_EFFECT_KEY].as<String>();
@@ -247,9 +300,11 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
 
 void onMqttPublish(uint16_t packetId) 
 {
-    Serial.println("Publish acknowledged.");
-    Serial.print("  packetId: ");
+#if DEBUG_MQTT
+    Serial.println(F("Publish acknowledged."));
+    Serial.print(F("  packetId: "));
     Serial.println(packetId);
+#endif
 }
 
 void init_preferences()
@@ -271,12 +326,12 @@ void initConfig()
     if (isInitialized)
     {
         // this seems NOT to be the first boot
-        Serial.println("not the first boot");
+        Serial.println(F("not the first boot"));
     }
     else
     {
         // this seems to be the first boot
-        Serial.println("first boot");
+        Serial.println(F("first boot"));
 
         // generate a device id..
         auto deviceId = DeviceUtils::GenerateDeviceId();
@@ -296,31 +351,31 @@ void initConfig()
 
 void initWifi()
 {
-    Serial.println("Init: WIFI");
+    Serial.println(F("Init: WIFI"));
 
     WiFi.mode(WIFI_STA);
     WiFi.begin(SSID_NAME, SSID_PASSWORD);
 
 #if DEBUG
     Serial.println();
-    Serial.print("Connecting to: ");
+    Serial.print(F("Connecting to: "));
     Serial.println(SSID_NAME);
 #endif
 
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
-        Serial.print(".");
+        Serial.print(F("."));
     }
 
     randomSeed(micros());
 
 #if DEBUG
-    Serial.println("");
-    Serial.println("WiFi connected");
-    Serial.println("IP address: ");
+    Serial.println(F(""));
+    Serial.println(F("WiFi connected"));
+    Serial.println(F("IP address: "));
     Serial.println(WiFi.localIP());
 #endif
-    Serial.println("End-Init: WIFI");
+    Serial.println(F("End-Init: WIFI"));
 }
 
 void setup()
