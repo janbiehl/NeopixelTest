@@ -20,8 +20,6 @@
 #define EXTERNAL_LED_PIN 1
 #define EXTERNAL_LED_LENGTH 150
 
-#define FPS 1000 / 30
-
 enum LightEffect 
 {
     unknown,
@@ -71,6 +69,7 @@ private:
     Adafruit_NeoPixel _onboardLed;
     Adafruit_NeoPixel _externalLed;
 
+    unsigned long nextRenderExecution = 0;
     unsigned long nextExecution = 0;
     unsigned long pixelPrevious = 0;        // Previous Pixel Millis
     unsigned long patternPrevious = 0;      // Previous Pattern Millis
@@ -95,6 +94,8 @@ public:
     void loop();
     void renderSolid();
     void renderRainbow();
+    void renderDot(unsigned long now, bool reverse);
+    void renderDotTrace(unsigned long now, bool reverse);
 };
 
 #endif // __LEDCONTROLLER_H__

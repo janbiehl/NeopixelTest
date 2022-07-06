@@ -128,10 +128,10 @@ void LedController::loop()
 {
     auto now = millis();
 
-    if (now < nextExecution)
+    if (now < nextRenderExecution)
         return;
 
-    nextExecution = now + FPS;
+    nextRenderExecution = now + 4;
 
     if(_state.lightOn)
     {
@@ -146,6 +146,7 @@ void LedController::loop()
         default:
             break;
         }
+        //renderDot(now, false);
     }
 
     // save the state for the next frame (edge detection)
@@ -174,8 +175,12 @@ void LedController::renderRainbow()
     // if(pixelInterval != wait)
     //     pixelInterval = wait;
 
+    _state.lightEffectChanged = false;
+
+
     for(uint16_t i=0; i < pixelNumber; i++) 
     {
+        //_externalLed.setPixelColor(i, Adafruit_NeoPixel::ColorHSV((i + pixelCycle) & 255));
         _externalLed.setPixelColor(i, LedUtils::ColorFromWheel((i + pixelCycle) & 255)); //  Update delay time  
     }
 
@@ -183,4 +188,68 @@ void LedController::renderRainbow()
     pixelCycle++;           //  Advance current cycle
     if(pixelCycle >= 256)
         pixelCycle = 0;                         //  Loop the cycle back to the begining   
+}
+
+void LedController::renderDot(unsigned long now, bool reverse)
+{
+    static bool up = true;
+    static size_t index = 0;
+
+    // turn any led of at the beginning
+    if (_state.lightEffectChanged)
+    {
+        _state.lightEffectChanged = false;
+
+        for(size_t i=0; i < EXTERNAL_LED_LENGTH; i++) 
+        {
+            _externalLed.setPixelColor(i, 0);
+        }
+
+        up = true;
+        index = 0;
+    }
+
+    if (now >= nextExecution)
+    {
+        nextExecution = now + 1;
+
+        _externalLed.setPixelColor(index, LedUtils::Color(&_state));
+        _externalLed.show();
+        // turn it off
+        _externalLed.setPixelColor(index, 0);
+
+        if (up)
+        {
+            if (index < (EXTERNAL_LED_LENGTH - 1))
+            {
+                index ++;
+            }
+            else
+            {
+                if (reverse)
+                {
+                    up = false;
+                }
+                else
+                {
+                    index = 0;
+                }
+            }
+        }
+        else
+        {
+            if (index > 0)
+            {
+                index --;
+            }
+            else{
+                up = true;
+            }
+        }
+    }
+}
+
+void LedController::renderDotTrace(unsigned long now, bool reverse)
+{
+    renderDot(now, reverse);
 }
