@@ -16,9 +16,6 @@ extern "C" {
 #define PREF_INITIALIZED_KEY "initialized"
 
 Preferences _preferences;
-//WiFiClient _wifiClient;
-//PubSubClient _mqttClient(_wifiClient);
-
 AsyncMqttClient _mqttClient;
 TimerHandle_t _mqttReconnectTimer;
 TimerHandle_t _wifiReconnectTimer;
@@ -50,15 +47,8 @@ void mqttAutoDiscovery()
     auto effectListArray = jsonDoc.createNestedArray(F("effect_list"));
     effectListArray.add(F("solid"));
     effectListArray.add(F("rainbow"));
-    //supportedColorModesArray.add(F("rgb"));
-    //jsonDoc["optimistic"] = false;
 
     auto discoveryTopic = DeviceUtils::GetHomeAssistantDiscoveryTopic(&_preferences);
-
-    // Serial.println(discoveryTopic);
-    // Serial.println(F("Autodiscovery payload: "));
-    // serializeJsonPretty(jsonDoc, Serial);
-    // Serial.println(F(" "));
 
     char buffer[512];
     size_t numberOfBytes = serializeJson(jsonDoc, buffer);
@@ -108,7 +98,6 @@ void sendStateUpdate()
     Serial.println(topic);
 
     _mqttClient.publish(topic, 0, true, buffer, numberOfBytes);
-    //_mqttClient.publish(topic, buffer, numberOfBytes);
 }
 
 void connectToWifi() 
@@ -124,9 +113,7 @@ void connectToMqtt()
 }
 
 void wifiEvent(WiFiEvent_t event)
-{
-    //Serial.printf("[WiFi-event] event: %d\n", event);
-    
+{    
     switch(event) 
     {
         case SYSTEM_EVENT_STA_GOT_IP:
@@ -145,8 +132,6 @@ void wifiEvent(WiFiEvent_t event)
 
 void onMqttConnected(bool sessionPresent) {
     Serial.println("Connected to MQTT.");
-    // Serial.print("Session present: ");
-    // Serial.println(sessionPresent);
 
     _mqttClient.subscribe(DeviceUtils::GetCommandTopic(&_preferences).c_str(), 0);
     mqttAutoDiscovery();
@@ -167,11 +152,7 @@ void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
 
 void onMqttSubscribe(uint16_t packetId, uint8_t qos) 
 {
-    // Serial.println("Subscribe acknowledged.");
-    // Serial.print("  packetId: ");
-    // Serial.println(packetId);
-    // Serial.print("  qos: ");
-    // Serial.println(qos);
+
 }
 
 void onMqttUnsubscribe(uint16_t packetId) 
@@ -352,7 +333,6 @@ void setup()
 
     init_preferences();
     initConfig();
-    //initWifi();
 
     _mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToMqtt));
     _wifiReconnectTimer = xTimerCreate("wifiTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToWifi));

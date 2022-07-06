@@ -12,7 +12,6 @@ void LedController::setState(LightStateUpdate stateUpdate)
 {
     Serial.println("\nLed controller state will be updated");
 
-
     if (stateUpdate.brightnessPresent)
     {
         _state.brightness = stateUpdate.brightness;
@@ -150,7 +149,6 @@ void LedController::loop()
         default:
             break;
         }
-        //renderDot(now, false);
     }
 
     // save the state for the next frame (edge detection)
@@ -176,11 +174,7 @@ void LedController::renderSolid()
 
 void LedController::renderRainbow()
 {
-    // if(pixelInterval != wait)
-    //     pixelInterval = wait;
-
     _state.lightEffectChanged = false;
-
 
     for(uint16_t i=0; i < pixelNumber; i++) 
     {
