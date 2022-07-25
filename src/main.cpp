@@ -22,8 +22,6 @@ TimerHandle_t _wifiReconnectTimer;
 
 LedController _ledController(&_preferences);
 
-unsigned long nextExecution;
-
 void mqttAutoDiscovery()
 {
     Serial.println(F("sending MQTT auto discovery for Homeassistant"));
@@ -384,7 +382,7 @@ void setup()
     Serial.begin(115200);
 
     // safety delay
-    delay(1000);
+    delay(500);
 
     init_preferences();
     initConfig();

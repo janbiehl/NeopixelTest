@@ -27,7 +27,7 @@ public:
         sprintf(macAddress, "%02X%02X%02X", mac_base[3], mac_base[4], mac_base[5]);
 
         // compose the device name
-        String deviceIdString = "LEDCont";
+        String deviceIdString = "LEDCont-";
         deviceIdString += macAddress[0];
         deviceIdString += macAddress[1];
         deviceIdString += macAddress[2];
