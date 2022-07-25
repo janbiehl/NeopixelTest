@@ -198,6 +198,9 @@ void LedController::renderRainbow()
 {
     _state.lightEffectChanged = false;
 
+    _onboardLed.setPixelColor(0, LedUtils::ColorFromWheel((0 + pixelCycle) & 255));
+    _onboardLed.show();
+
     for(uint16_t i=0; i < pixelNumber; i++) 
     {
         //_externalLed.setPixelColor(i, Adafruit_NeoPixel::ColorHSV((i + pixelCycle) & 255));
@@ -206,6 +209,7 @@ void LedController::renderRainbow()
 
     _externalLed.show();                             //  Update strip to match
     pixelCycle++;           //  Advance current cycle
+    
     if(pixelCycle >= 256)
         pixelCycle = 0;                         //  Loop the cycle back to the begining   
 }
