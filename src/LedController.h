@@ -15,7 +15,13 @@
 #define JSON_WHITE_KEY "w"
 #define JSON_EFFECT_KEY "effect"
 
+#if ESP32S2 == 0
+#define ONBOARD_LED_PIN 8
+#else
 #define ONBOARD_LED_PIN 18
+#endif
+
+
 
 #define EXTERNAL_LED_PIN 1
 #define EXTERNAL_LED_LENGTH 150
