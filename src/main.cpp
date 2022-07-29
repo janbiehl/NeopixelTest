@@ -102,7 +102,7 @@ void sendStateUpdate()
     char buffer[512];
     size_t numberOfBytes = serializeJson(jsonDoc, buffer);
 
-    auto topic = DeviceUtils::GetStateTopic(&_preferences).c_str();
+    auto topic = DeviceUtils::GetStateTopic(&_preferences);
 
 #if DEBUG_MQTT
 
@@ -113,7 +113,8 @@ void sendStateUpdate()
 
 #endif
 
-    _mqttClient.publish(topic, 0, true, buffer, numberOfBytes);
+    // TODO: Why is this required to be retained? I dont get it right now.
+    _mqttClient.publish(topic.c_str(), 0, true, buffer, numberOfBytes);
 }
 
 void connectToWifi()
