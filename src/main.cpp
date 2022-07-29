@@ -11,6 +11,8 @@ extern "C" {
 #include "DeviceUtils.h"
 #include "ArduinoJson.h"
 #include "AsyncMqttClient.h"
+#include "ESPAsyncWebServer.h"
+#include "AsyncElegantOTA.h"
 
 #define PREF_APP_KEY "JBLedController"
 #define PREF_INITIALIZED_KEY "initialized"
@@ -21,6 +23,7 @@ TimerHandle_t _mqttReconnectTimer;
 TimerHandle_t _wifiReconnectTimer;
 
 LedController _ledController(&_preferences);
+AsyncWebServer _server(80);
 
 void mqttAutoDiscovery()
 {
@@ -129,6 +132,10 @@ void wifiEvent(WiFiEvent_t event)
             Serial.println(F("WiFi connected"));
             Serial.println(F("IP address: "));
             Serial.println(WiFi.localIP());
+
+            AsyncElegantOTA.begin(&_server);    // Start ElegantOTA
+            _server.begin();
+
             connectToMqtt();
             break;
         case SYSTEM_EVENT_STA_DISCONNECTED:
@@ -399,6 +406,10 @@ void setup()
     _mqttClient.onMessage(onMqttMessage);
     _mqttClient.onPublish(onMqttPublish);
     _mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
+
+    _server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+        request->send(200, "text/plain", "Hi! I am an LED-Controller, OTA should be enabled for this one at: 'http://<IPAddress>/update'");
+    });
 
     connectToWifi();
     _ledController.setup();
