@@ -103,7 +103,7 @@ void sendStateUpdate()
     size_t numberOfBytes = serializeJson(jsonDoc, buffer);
 
     auto topic = DeviceUtils::GetStateTopic(&_preferences).c_str();
-
+    // auto topic = "homeassistant/light/LEDCont-137184/state";
 #if DEBUG_MQTT
 
     Serial.printf("Sending the state update to: '%s'", topic);
@@ -201,17 +201,19 @@ void onMqttUnsubscribe(uint16_t packetId)
 
 void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total)
 {
-    Serial.println(F("MQTT message received"));
+    Serial.printf("MQTT message at topic: '%s' received\n", topic);
 
     StaticJsonDocument<512> jsonDoc;
     deserializeJson(jsonDoc, payload, len);
 
+    auto commandTopic = DeviceUtils::GetCommandTopic(&_preferences).c_str();
+
 #if DEBUG_MQTT
     serializeJsonPretty(jsonDoc, Serial);
     Serial.println(F(""));
+    Serial.printf("CommandTopic: '%s'", commandTopic);
 #endif
 
-    auto commandTopic = DeviceUtils::GetCommandTopic(&_preferences).c_str();
     if (strcmp(topic, commandTopic) == 0)
     {
 #if DEBUG_MQTT
@@ -424,9 +426,8 @@ void setup()
     _mqttClient.onPublish(onMqttPublish);
     _mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
 
-    _server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->send(200, "text/plain", "Hi! I am an LED-Controller, OTA should be enabled for this one at: 'http://<IPAddress>/update'");
-    });
+    _server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+               { request->send(200, "text/plain", "Hi! I am an LED-Controller \n\n OTA should be enabled for this one at: 'http://<IPAddress>/update'"); });
 
     connectToWifi();
     _ledController.setup();
