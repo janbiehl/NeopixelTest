@@ -5,14 +5,14 @@
 #include "Preferences.h"
 
 /**
- * @brief Utility methods for device specific function 
+ * @brief Utility methods for device specific function
  */
 class DeviceUtils
-{    
+{
 public:
     /**
      * @brief Get a unique identifier for a ESP-Device, it will be based on the devices Mac-Address
-     * 
+     *
      * @return Device identifier
      */
     static String GenerateDeviceId()
@@ -27,7 +27,7 @@ public:
         sprintf(macAddress, "%02X%02X%02X", mac_base[3], mac_base[4], mac_base[5]);
 
         // compose the device name
-        String deviceIdString = "LEDCont-";
+        String deviceIdString = "LEDCont";
         deviceIdString += macAddress[0];
         deviceIdString += macAddress[1];
         deviceIdString += macAddress[2];
@@ -38,30 +38,30 @@ public:
         return deviceIdString;
     }
 
-    static String GetDeviceId(Preferences* _preferences)
+    static String GetDeviceId(Preferences *_preferences)
     {
         return _preferences->getString(PREF_DEVICE_NAME_KEY);
     }
 
-    static String GetBaseTopic(Preferences* _preferences)
+    static String GetBaseTopic(Preferences *_preferences)
     {
         auto topic = String("homeassistant/light/");
         topic += GetDeviceId(_preferences);
 
         return topic;
     }
-    
-    static String GetStateTopic(Preferences* _preferences)
+
+    static String GetStateTopic(Preferences *_preferences)
     {
         return GetBaseTopic(_preferences) + "/state";
     }
 
-    static String GetCommandTopic(Preferences* _preferences)
+    static String GetCommandTopic(Preferences *_preferences)
     {
         return GetBaseTopic(_preferences) + "/set";
     }
 
-    static String GetHomeAssistantDiscoveryTopic(Preferences* _preferences)
+    static String GetHomeAssistantDiscoveryTopic(Preferences *_preferences)
     {
         return GetBaseTopic(_preferences) + "/config";
     }

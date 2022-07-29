@@ -1,9 +1,8 @@
 #include "LedController.h"
 #include "LedUtils.h"
 
-LedController::LedController(Preferences* preferences) : 
-    _onboardLed(1, ONBOARD_LED_PIN, NEO_GRB + NEO_KHZ800),
-    _externalLed(EXTERNAL_LED_LENGTH, EXTERNAL_LED_PIN, NEO_GRBW + NEO_KHZ800)
+LedController::LedController(Preferences *preferences) : _onboardLed(1, ONBOARD_LED_PIN, NEO_GRB + NEO_KHZ800),
+                                                         _externalLed(EXTERNAL_LED_LENGTH, EXTERNAL_LED_PIN, NEO_GRBW + NEO_KHZ800)
 {
     _preferences = preferences;
 }
@@ -30,11 +29,11 @@ void LedController::setState(LightStateUpdate stateUpdate)
         _state.green = stateUpdate.green;
         _state.blue = stateUpdate.blue;
         _state.white = stateUpdate.white;
-        
+
         uint32_t color = Adafruit_NeoPixel::Color(_state.red, _state.green, _state.blue, _state.white);
         setColor(color);
     }
-    
+
     if (stateUpdate.lightEffectPresent)
     {
 #if DEBUG_LIGHT
@@ -50,16 +49,18 @@ void LedController::setState(LightStateUpdate stateUpdate)
 #endif
         _state.lightOn = stateUpdate.lightOn;
 
-        if (_state.lightOn && !_lastState.lightOn){
+        if (_state.lightOn && !_lastState.lightOn)
+        {
             setOn();
         }
-        else if (!_state.lightOn && _lastState.lightOn){
+        else if (!_state.lightOn && _lastState.lightOn)
+        {
             setOff();
         }
-    }   
+    }
 }
 
-const LightState* LedController::getState()
+const LightState *LedController::getState()
 {
     return &_state;
 }
@@ -78,7 +79,7 @@ void LedController::setColor(uint32_t newColor)
 #if DEBUG_LIGHT
     Serial.printf("R: %d; G: %d, B: %d, W: %d\n", _state.red, _state.green, _state.blue, _state.white);
 #endif
-    
+
     _onboardLed.setPixelColor(0, LedUtils::Color(&_state));
 
     _onboardLed.show();
@@ -109,7 +110,7 @@ void LedController::setOff()
 #if DEBUG_LIGHT
     Serial.println(F("light turned off"));
 #endif
-    
+
     // light switched off
     _onboardLed.setPixelColor(0, 0, 0, 0, 0);
     _onboardLed.show();
@@ -158,7 +159,7 @@ void LedController::loop()
 
     nextRenderExecution = now + 4;
 
-    if(_state.lightOn)
+    if (_state.lightOn)
     {
         switch (_state.lightEffect)
         {
@@ -188,7 +189,7 @@ void LedController::renderSolid()
         {
             _externalLed.setPixelColor(i, _state.red, _state.green, _state.blue, _state.white);
         }
-        _externalLed.show(); 
+        _externalLed.show();
 
         _state.lightEffectChanged = false;
     }
@@ -201,17 +202,17 @@ void LedController::renderRainbow()
     _onboardLed.setPixelColor(0, LedUtils::ColorFromWheel((0 + pixelCycle) & 255));
     _onboardLed.show();
 
-    for(uint16_t i=0; i < pixelNumber; i++) 
+    for (uint16_t i = 0; i < pixelNumber; i++)
     {
         //_externalLed.setPixelColor(i, Adafruit_NeoPixel::ColorHSV((i + pixelCycle) & 255));
-        _externalLed.setPixelColor(i, LedUtils::ColorFromWheel((i + pixelCycle) & 255)); //  Update delay time  
+        _externalLed.setPixelColor(i, LedUtils::ColorFromWheel((i + pixelCycle) & 255)); //  Update delay time
     }
 
-    _externalLed.show();                             //  Update strip to match
-    pixelCycle++;           //  Advance current cycle
-    
-    if(pixelCycle >= 256)
-        pixelCycle = 0;                         //  Loop the cycle back to the begining   
+    _externalLed.show(); //  Update strip to match
+    pixelCycle++;        //  Advance current cycle
+
+    if (pixelCycle >= 256)
+        pixelCycle = 0; //  Loop the cycle back to the begining
 }
 
 void LedController::renderDot(unsigned long now, bool reverse)
@@ -224,7 +225,7 @@ void LedController::renderDot(unsigned long now, bool reverse)
     {
         _state.lightEffectChanged = false;
 
-        for(size_t i=0; i < EXTERNAL_LED_LENGTH; i++) 
+        for (size_t i = 0; i < EXTERNAL_LED_LENGTH; i++)
         {
             _externalLed.setPixelColor(i, 0);
         }
@@ -246,7 +247,7 @@ void LedController::renderDot(unsigned long now, bool reverse)
         {
             if (index < (EXTERNAL_LED_LENGTH - 1))
             {
-                index ++;
+                index++;
             }
             else
             {
@@ -264,9 +265,10 @@ void LedController::renderDot(unsigned long now, bool reverse)
         {
             if (index > 0)
             {
-                index --;
+                index--;
             }
-            else{
+            else
+            {
                 up = true;
             }
         }

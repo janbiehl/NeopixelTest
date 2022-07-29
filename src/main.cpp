@@ -1,6 +1,7 @@
-extern "C" {
-    #include "freertos/FreeRTOS.h"
-    #include "freertos/timers.h"
+extern "C"
+{
+#include "freertos/FreeRTOS.h"
+#include "freertos/timers.h"
 }
 
 #include "Arduino.h"
@@ -38,9 +39,9 @@ void mqttAutoDiscovery()
     jsonDoc["schema"] = F("json");
     jsonDoc["color_mode"] = true;
     jsonDoc["brightness"] = true;
-    auto supportedColorModesArray =jsonDoc.createNestedArray(F("supported_color_modes"));
+    auto supportedColorModesArray = jsonDoc.createNestedArray(F("supported_color_modes"));
     supportedColorModesArray.add(F("rgbw"));
-    
+
     jsonDoc["effect"] = true;
     auto effectListArray = jsonDoc.createNestedArray(F("effect_list"));
     effectListArray.add(F("solid"));
@@ -51,7 +52,7 @@ void mqttAutoDiscovery()
     char buffer[512];
     size_t numberOfBytes = serializeJson(jsonDoc, buffer);
 
-#if DEBUG_MQTT 
+#if DEBUG_MQTT
 
     serializeJsonPretty(jsonDoc, Serial);
     Serial.println(F(""));
@@ -68,7 +69,7 @@ void sendStateUpdate()
     JsonObject jsonObject = jsonDoc.to<JsonObject>();
 
     auto state = _ledController.getState();
-    
+
     if (state->lightOn)
         jsonDoc[JSON_STATE_KEY] = F("ON");
     else
@@ -81,13 +82,16 @@ void sendStateUpdate()
     jsonDoc[JSON_COLOR_KEY][JSON_BLUE_KEY] = state->blue;
     jsonDoc[JSON_COLOR_KEY][JSON_WHITE_KEY] = state->white;
 
-    if (state->lightEffect == LightEffect::solid){
+    if (state->lightEffect == LightEffect::solid)
+    {
         jsonDoc[JSON_EFFECT_KEY] = "solid";
     }
-    else if (state->lightEffect == LightEffect::rainbow){
+    else if (state->lightEffect == LightEffect::rainbow)
+    {
         jsonDoc[JSON_EFFECT_KEY] = "rainbow";
     }
-    else{
+    else
+    {
         // Solid as fallback
         jsonDoc[JSON_EFFECT_KEY] = "solid";
     }
@@ -98,7 +102,7 @@ void sendStateUpdate()
     auto topic = DeviceUtils::GetStateTopic(&_preferences).c_str();
 
 #if DEBUG_MQTT
-    
+
     Serial.printf("Sending the state update to: '%s'", topic);
     Serial.println(F("Light state for MQTT: "));
     serializeJsonPretty(jsonDoc, Serial);
@@ -109,7 +113,7 @@ void sendStateUpdate()
     _mqttClient.publish(topic, 0, true, buffer, numberOfBytes);
 }
 
-void connectToWifi() 
+void connectToWifi()
 {
     Serial.println(F("Connecting to Wi-Fi..."));
     WiFi.begin(SSID_NAME, SSID_PASSWORD);
@@ -122,28 +126,35 @@ void connectToMqtt()
 }
 
 void wifiEvent(WiFiEvent_t event)
-{    
-    switch(event) 
+{
+    switch (event)
     {
-        case SYSTEM_EVENT_STA_GOT_IP:
-            Serial.println(F("WiFi connected"));
-            Serial.println(F("IP address: "));
-            Serial.println(WiFi.localIP());
-            connectToMqtt();
-            break;
-        case SYSTEM_EVENT_STA_DISCONNECTED:
-            Serial.println(F("WiFi lost connection"));
-            xTimerStop(_mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
-            xTimerStart(_wifiReconnectTimer, 0);
-            break;
-    }  
+    case SYSTEM_EVENT_STA_GOT_IP:
+        Serial.println(F("WiFi connected"));
+        Serial.println(F("IP address: "));
+        Serial.println(WiFi.localIP());
+        connectToMqtt();
+        break;
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+        Serial.println(F("WiFi lost connection"));
+        xTimerStop(_mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+        xTimerStart(_wifiReconnectTimer, 0);
+        break;
+    }
 }
 
-void onMqttConnected(bool sessionPresent) {
+void onMqttConnected(bool sessionPresent)
+{
     Serial.println(F("Connected to MQTT."));
 
+#if DEBUG_MQTT
+    Serial.println(F("Subscribing for light command topic"));
+#endif
+
     _mqttClient.subscribe(DeviceUtils::GetCommandTopic(&_preferences).c_str(), 0);
-    
+
+    delay(500);
+
     mqttAutoDiscovery();
 
     delay(500);
@@ -151,16 +162,17 @@ void onMqttConnected(bool sessionPresent) {
     sendStateUpdate();
 }
 
-void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) 
+void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
 {
     Serial.println(F("Disconnected from MQTT."));
 
-    if (WiFi.isConnected()) {
+    if (WiFi.isConnected())
+    {
         xTimerStart(_mqttReconnectTimer, 0);
     }
 }
 
-void onMqttSubscribe(uint16_t packetId, uint8_t qos) 
+void onMqttSubscribe(uint16_t packetId, uint8_t qos)
 {
 #if DEBUG_MQTT
     Serial.println(F("Subscribe acknowledged."));
@@ -171,7 +183,7 @@ void onMqttSubscribe(uint16_t packetId, uint8_t qos)
 #endif
 }
 
-void onMqttUnsubscribe(uint16_t packetId) 
+void onMqttUnsubscribe(uint16_t packetId)
 {
 #if DEBUG_MQTT
     Serial.println(F("Unsubscribe acknowledged."));
@@ -180,7 +192,7 @@ void onMqttUnsubscribe(uint16_t packetId)
 #endif
 }
 
-void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total) 
+void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total)
 {
     Serial.println(F("MQTT message received"));
 
@@ -273,13 +285,15 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
             Serial.println(F("Message contains effect information"));
 #endif
             stateUpdate.lightEffectPresent = true;
-            
+
             auto effectString = jsonDoc[JSON_EFFECT_KEY].as<String>();
-            
-            if (effectString.equals("solid")){
+
+            if (effectString.equals("solid"))
+            {
                 stateUpdate.lightEffect = LightEffect::solid;
             }
-            else if (effectString.equals("rainbow")){
+            else if (effectString.equals("rainbow"))
+            {
                 stateUpdate.lightEffect = LightEffect::rainbow;
             }
             else
@@ -296,7 +310,7 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
     sendStateUpdate();
 }
 
-void onMqttPublish(uint16_t packetId) 
+void onMqttPublish(uint16_t packetId)
 {
 #if DEBUG_MQTT
     Serial.println(F("Publish acknowledged."));
@@ -325,6 +339,8 @@ void initConfig()
     {
         // this seems NOT to be the first boot
         Serial.println(F("not the first boot"));
+
+        auto deviceId = _preferences.getString(PREF_DEVICE_NAME_KEY);
     }
     else
     {
@@ -334,14 +350,14 @@ void initConfig()
         // generate a device id..
         auto deviceId = DeviceUtils::GenerateDeviceId();
 
-        // and store it 
+        // and store it
         _preferences.putString(PREF_DEVICE_NAME_KEY, deviceId);
 
 #if DEBUG
         Serial.println(deviceId);
 #endif
 
-        // initialization is done, 
+        // initialization is done,
         // set the flag in _preferences to show, that we are properly initialized
         _preferences.putBool(PREF_INITIALIZED_KEY, true);
     }
@@ -360,7 +376,8 @@ void initWifi()
     Serial.println(SSID_NAME);
 #endif
 
-    while (WiFi.status() != WL_CONNECTED) {
+    while (WiFi.status() != WL_CONNECTED)
+    {
         delay(500);
         Serial.print(F("."));
     }
@@ -387,8 +404,8 @@ void setup()
     init_preferences();
     initConfig();
 
-    _mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToMqtt));
-    _wifiReconnectTimer = xTimerCreate("wifiTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(connectToWifi));
+    _mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(2000), pdFALSE, (void *)0, reinterpret_cast<TimerCallbackFunction_t>(connectToMqtt));
+    _wifiReconnectTimer = xTimerCreate("wifiTimer", pdMS_TO_TICKS(2000), pdFALSE, (void *)0, reinterpret_cast<TimerCallbackFunction_t>(connectToWifi));
 
     WiFi.onEvent(wifiEvent);
 
