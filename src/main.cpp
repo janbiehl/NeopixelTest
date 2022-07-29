@@ -132,22 +132,22 @@ void wifiEvent(WiFiEvent_t event)
 {
     switch (event)
     {
-        case SYSTEM_EVENT_STA_GOT_IP:
-            Serial.println(F("WiFi connected"));
-            Serial.println(F("IP address: "));
-            Serial.println(WiFi.localIP());
+    case SYSTEM_EVENT_STA_GOT_IP:
+        Serial.println(F("WiFi connected"));
+        Serial.println(F("IP address: "));
+        Serial.println(WiFi.localIP());
 
-            AsyncElegantOTA.begin(&_server);    // Start ElegantOTA
-            _server.begin();
+        AsyncElegantOTA.begin(&_server); // Start ElegantOTA
+        _server.begin();
 
-            connectToMqtt();
-            break;
-        case SYSTEM_EVENT_STA_DISCONNECTED:
-            Serial.println(F("WiFi lost connection"));
-            xTimerStop(_mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
-            xTimerStart(_wifiReconnectTimer, 0);
-            break;
-    }  
+        connectToMqtt();
+        break;
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+        Serial.println(F("WiFi lost connection"));
+        xTimerStop(_mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+        xTimerStart(_wifiReconnectTimer, 0);
+        break;
+    }
 }
 
 void onMqttConnected(bool sessionPresent)
