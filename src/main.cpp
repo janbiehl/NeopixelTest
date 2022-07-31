@@ -217,7 +217,6 @@ void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties 
     Serial.printf("CommandTopic: '%s'", commandTopic.c_str());
 #endif
 
-    String commandTopic = _deviceUtils.GetCommandTopic();
     if (strcmp(topic, commandTopic.c_str()) == 0)
     {
 #if DEBUG_MQTT
