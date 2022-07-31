@@ -9,7 +9,15 @@
  */
 class DeviceUtils
 {
+private:
+    Preferences * _preferences;
 public:
+
+    DeviceUtils(Preferences* preferences)
+    {
+        _preferences = preferences;
+    }
+
     /**
      * @brief Get a unique identifier for a ESP-Device, it will be based on the devices Mac-Address
      *
@@ -38,32 +46,32 @@ public:
         return deviceIdString;
     }
 
-    static String GetDeviceId(Preferences *_preferences)
+    String GetDeviceId()
     {
         return _preferences->getString(PREF_DEVICE_NAME_KEY);
     }
 
-    static String GetBaseTopic(Preferences *_preferences)
+    String GetBaseTopic()
     {
         auto topic = String("homeassistant/light/");
-        topic += GetDeviceId(_preferences);
+        topic += GetDeviceId();
 
         return topic;
     }
 
-    static String GetStateTopic(Preferences *_preferences)
+    String GetStateTopic()
     {
-        return GetBaseTopic(_preferences) + "/state";
+        return GetBaseTopic() + "/state";
     }
 
-    static String GetCommandTopic(Preferences *_preferences)
+    String GetCommandTopic()
     {
-        return GetBaseTopic(_preferences) + "/set";
+        return GetBaseTopic() + "/set";
     }
 
-    static String GetHomeAssistantDiscoveryTopic(Preferences *_preferences)
+    String GetHomeAssistantDiscoveryTopic()
     {
-        return GetBaseTopic(_preferences) + "/config";
+        return GetBaseTopic() + "/config";
     }
 };
 

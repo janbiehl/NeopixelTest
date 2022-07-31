@@ -23,6 +23,7 @@ AsyncMqttClient _mqttClient;
 TimerHandle_t _mqttReconnectTimer;
 TimerHandle_t _wifiReconnectTimer;
 
+DeviceUtils _deviceUtils(&_preferences);
 LedController _ledController(&_preferences);
 AsyncWebServer _server(80);
 
@@ -31,8 +32,8 @@ void mqttAutoDiscovery()
     Serial.println(F("sending MQTT auto discovery for Homeassistant"));
     StaticJsonDocument<512> jsonDoc;
 
-    auto topic = DeviceUtils::GetBaseTopic(&_preferences);
-    auto deviceId = DeviceUtils::GetDeviceId(&_preferences);
+    String topic = _deviceUtils.GetBaseTopic();
+    String deviceId = _deviceUtils.GetDeviceId();
 
     jsonDoc["~"] = topic;
     jsonDoc["name"] = deviceId;
@@ -50,7 +51,7 @@ void mqttAutoDiscovery()
     effectListArray.add(F("solid"));
     effectListArray.add(F("rainbow"));
 
-    auto discoveryTopic = DeviceUtils::GetHomeAssistantDiscoveryTopic(&_preferences);
+    String discoveryTopic = _deviceUtils.GetHomeAssistantDiscoveryTopic();
 
     char buffer[512];
     size_t numberOfBytes = serializeJson(jsonDoc, buffer);
@@ -102,11 +103,12 @@ void sendStateUpdate()
     char buffer[512];
     size_t numberOfBytes = serializeJson(jsonDoc, buffer);
 
-    auto topic = DeviceUtils::GetStateTopic(&_preferences);
+    String topic = _deviceUtils.GetStateTopic();
+
+    Serial.printf("Sending the state update to: '%s'", topic.c_str());
 
 #if DEBUG_MQTT
 
-    Serial.printf("Sending the state update to: '%s'", topic);
     Serial.println(F("Light state for MQTT: "));
     serializeJsonPretty(jsonDoc, Serial);
     Serial.println(F(""));
@@ -159,7 +161,7 @@ void onMqttConnected(bool sessionPresent)
     Serial.println(F("Subscribing for light command topic"));
 #endif
 
-    _mqttClient.subscribe(DeviceUtils::GetCommandTopic(&_preferences).c_str(), 0);
+    _mqttClient.subscribe(_deviceUtils.GetCommandTopic().c_str(), 0);
 
     delay(500);
 
@@ -212,11 +214,11 @@ void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties 
     Serial.println(F(""));
 #endif
 
-    auto commandTopic = DeviceUtils::GetCommandTopic(&_preferences).c_str();
-    if (strcmp(topic, commandTopic) == 0)
+    String commandTopic = _deviceUtils.GetCommandTopic();
+    if (strcmp(topic, commandTopic.c_str()) == 0)
     {
 #if DEBUG_MQTT
-        Serial.printf("\nthere was a mqtt message at '%s'\n", commandTopic);
+        Serial.printf("\nthere was a mqtt message at '%s'\n", commandTopic.c_str());
 #endif
         LightStateUpdate stateUpdate = LightStateUpdate();
 
@@ -294,7 +296,7 @@ void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties 
 #endif
             stateUpdate.lightEffectPresent = true;
 
-            auto effectString = jsonDoc[JSON_EFFECT_KEY].as<String>();
+            String effectString = jsonDoc[JSON_EFFECT_KEY].as<String>();
 
             if (effectString.equals("solid"))
             {
@@ -308,7 +310,7 @@ void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties 
             {
                 stateUpdate.lightEffect = unknown;
                 stateUpdate.lightEffectPresent = false;
-                Serial.printf("light effect: '%s' is not supported\n", effectString);
+                Serial.printf("light effect: '%s' is not supported\n", effectString.c_str());
             }
         }
 
@@ -348,7 +350,7 @@ void initConfig()
         // this seems NOT to be the first boot
         Serial.println(F("not the first boot"));
 
-        auto deviceId = _preferences.getString(PREF_DEVICE_NAME_KEY);
+        String deviceId = _preferences.getString(PREF_DEVICE_NAME_KEY);
     }
     else
     {
@@ -356,13 +358,13 @@ void initConfig()
         Serial.println(F("first boot"));
 
         // generate a device id..
-        auto deviceId = DeviceUtils::GenerateDeviceId();
+        String deviceId = _deviceUtils.GenerateDeviceId();
 
         // and store it
-        _preferences.putString(PREF_DEVICE_NAME_KEY, deviceId);
+        _preferences.putString(PREF_DEVICE_NAME_KEY, deviceId.c_str());
 
 #if DEBUG
-        Serial.println(deviceId);
+        Serial.println(deviceId.c_str());
 #endif
 
         // initialization is done,
