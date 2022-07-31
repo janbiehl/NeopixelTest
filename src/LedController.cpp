@@ -1,6 +1,8 @@
 #include "LedController.h"
 #include "LedUtils.h"
 
+// TODO: The led controller has to trigger a light state update by itself, on the MqttHandler
+
 LedController::LedController(Preferences *preferences) : _onboardLed(1, ONBOARD_LED_PIN, NEO_GRB + NEO_KHZ800),
                                                          _externalLed(EXTERNAL_LED_LENGTH, EXTERNAL_LED_PIN, NEO_GRBW + NEO_KHZ800)
 {
