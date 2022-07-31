@@ -135,22 +135,22 @@ void wifiEvent(WiFiEvent_t event)
 {
     switch (event)
     {
-        case SYSTEM_EVENT_STA_GOT_IP:
-            Serial.println(F("WiFi connected"));
-            Serial.println(F("IP address: "));
-            Serial.println(WiFi.localIP());
+    case SYSTEM_EVENT_STA_GOT_IP:
+        Serial.println(F("WiFi connected"));
+        Serial.println(F("IP address: "));
+        Serial.println(WiFi.localIP());
 
-            AsyncElegantOTA.begin(&_server);    // Start ElegantOTA
-            _server.begin();
+        AsyncElegantOTA.begin(&_server); // Start ElegantOTA
+        _server.begin();
 
-            connectToMqtt();
-            break;
-        case SYSTEM_EVENT_STA_DISCONNECTED:
-            Serial.println(F("WiFi lost connection"));
-            xTimerStop(_mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
-            xTimerStart(_wifiReconnectTimer, 0);
-            break;
-    }  
+        connectToMqtt();
+        break;
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+        Serial.println(F("WiFi lost connection"));
+        xTimerStop(_mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+        xTimerStart(_wifiReconnectTimer, 0);
+        break;
+    }
 }
 
 void onMqttConnected(bool sessionPresent)
@@ -204,14 +204,17 @@ void onMqttUnsubscribe(uint16_t packetId)
 
 void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total)
 {
-    Serial.println(F("MQTT message received"));
+    Serial.printf("MQTT message at topic: '%s' received\n", topic);
 
     StaticJsonDocument<512> jsonDoc;
     deserializeJson(jsonDoc, payload, len);
 
+    String commandTopic = _deviceUtils.GetCommandTopic();
+
 #if DEBUG_MQTT
     serializeJsonPretty(jsonDoc, Serial);
     Serial.println(F(""));
+    Serial.printf("CommandTopic: '%s'", commandTopic.c_str());
 #endif
 
     String commandTopic = _deviceUtils.GetCommandTopic();
@@ -427,9 +430,8 @@ void setup()
     _mqttClient.onPublish(onMqttPublish);
     _mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
 
-    _server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->send(200, "text/plain", "Hi! I am an LED-Controller, OTA should be enabled for this one at: 'http://<IPAddress>/update'");
-    });
+    _server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+               { request->send(200, "text/plain", "Hi! I am an LED-Controller \n\n OTA should be enabled for this one at: 'http://<IPAddress>/update'"); });
 
     connectToWifi();
     _ledController.setup();
