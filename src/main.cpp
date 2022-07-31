@@ -102,18 +102,18 @@ void sendStateUpdate()
     char buffer[512];
     size_t numberOfBytes = serializeJson(jsonDoc, buffer);
 
-    auto topic = DeviceUtils::GetStateTopic(&_preferences).c_str();
+    auto topic = DeviceUtils::GetStateTopic(&_preferences);
     // auto topic = "homeassistant/light/LEDCont-137184/state";
 #if DEBUG_MQTT
 
-    Serial.printf("Sending the state update to: '%s'", topic);
+    Serial.printf("Sending the state update to: '%s'", topic.c_str());
     Serial.println(F("Light state for MQTT: "));
     serializeJsonPretty(jsonDoc, Serial);
     Serial.println(F(""));
 
 #endif
 
-    _mqttClient.publish(topic, 0, true, buffer, numberOfBytes);
+    _mqttClient.publish(topic.c_str(), 0, true, buffer, numberOfBytes);
 }
 
 void connectToWifi()
@@ -206,15 +206,15 @@ void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties 
     StaticJsonDocument<512> jsonDoc;
     deserializeJson(jsonDoc, payload, len);
 
-    auto commandTopic = DeviceUtils::GetCommandTopic(&_preferences).c_str();
+    auto commandTopic = DeviceUtils::GetCommandTopic(&_preferences);
 
 #if DEBUG_MQTT
     serializeJsonPretty(jsonDoc, Serial);
     Serial.println(F(""));
-    Serial.printf("CommandTopic: '%s'", commandTopic);
+    Serial.printf("CommandTopic: '%s'", commandTopic.c_str());
 #endif
 
-    if (strcmp(topic, commandTopic) == 0)
+    if (strcmp(topic, commandTopic.c_str()) == 0)
     {
 #if DEBUG_MQTT
         Serial.printf("\nthere was a mqtt message at '%s'\n", commandTopic);
