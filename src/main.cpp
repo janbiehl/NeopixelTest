@@ -104,6 +104,7 @@ void sendStateUpdate()
 
     auto topic = DeviceUtils::GetStateTopic(&_preferences);
     // auto topic = "homeassistant/light/LEDCont-137184/state";
+
 #if DEBUG_MQTT
 
     Serial.printf("Sending the state update to: '%s'", topic.c_str());
@@ -113,6 +114,7 @@ void sendStateUpdate()
 
 #endif
 
+    // TODO: Why is this required to be retained? I dont get it right now.
     _mqttClient.publish(topic.c_str(), 0, true, buffer, numberOfBytes);
 }
 
