@@ -157,7 +157,7 @@ void LedController::loop()
     if (now < nextRenderExecution)
         return;
 
-    nextRenderExecution = now + 4;
+    nextRenderExecution = now + 20;
 
     if (_state.lightOn)
     {
