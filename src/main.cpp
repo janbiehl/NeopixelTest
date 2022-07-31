@@ -14,110 +14,18 @@ extern "C"
 #include "AsyncMqttClient.h"
 #include "ESPAsyncWebServer.h"
 #include "AsyncElegantOTA.h"
+#include "MqttHandler.h"
 
 #define PREF_APP_KEY "JBLedController"
 #define PREF_INITIALIZED_KEY "initialized"
 
 Preferences _preferences;
-AsyncMqttClient _mqttClient;
-TimerHandle_t _mqttReconnectTimer;
 TimerHandle_t _wifiReconnectTimer;
 
 DeviceUtils _deviceUtils(&_preferences);
 LedController _ledController(&_preferences);
 AsyncWebServer _server(80);
-
-void mqttAutoDiscovery()
-{
-    Serial.println(F("sending MQTT auto discovery for Homeassistant"));
-    StaticJsonDocument<512> jsonDoc;
-
-    String topic = _deviceUtils.GetBaseTopic();
-    String deviceId = _deviceUtils.GetDeviceId();
-
-    jsonDoc["~"] = topic;
-    jsonDoc["name"] = deviceId;
-    jsonDoc["unique_id"] = deviceId;
-    jsonDoc["cmd_t"] = F("~/set");
-    jsonDoc["stat_t"] = F("~/state");
-    jsonDoc["schema"] = F("json");
-    jsonDoc["color_mode"] = true;
-    jsonDoc["brightness"] = true;
-    auto supportedColorModesArray = jsonDoc.createNestedArray(F("supported_color_modes"));
-    supportedColorModesArray.add(F("rgbw"));
-
-    jsonDoc["effect"] = true;
-    auto effectListArray = jsonDoc.createNestedArray(F("effect_list"));
-    effectListArray.add(F("solid"));
-    effectListArray.add(F("rainbow"));
-
-    String discoveryTopic = _deviceUtils.GetHomeAssistantDiscoveryTopic();
-
-    char buffer[512];
-    size_t numberOfBytes = serializeJson(jsonDoc, buffer);
-
-#if DEBUG_MQTT
-
-    serializeJsonPretty(jsonDoc, Serial);
-    Serial.println(F(""));
-
-#endif
-
-    _mqttClient.publish(discoveryTopic.c_str(), 0, false, buffer, numberOfBytes);
-}
-
-void sendStateUpdate()
-{
-    Serial.println(F("Sending a light state update to MQTT"));
-    StaticJsonDocument<512> jsonDoc;
-    JsonObject jsonObject = jsonDoc.to<JsonObject>();
-
-    auto state = _ledController.getState();
-
-    if (state->lightOn)
-        jsonDoc[JSON_STATE_KEY] = F("ON");
-    else
-        jsonDoc[JSON_STATE_KEY] = F("OFF");
-
-    jsonDoc[JSON_BRIGHTNESS_KEY] = state->brightness;
-    jsonDoc[JSON_COLOR_MODE_KEY] = F("rgbw");
-    jsonDoc[JSON_COLOR_KEY][JSON_RED_KEY] = state->red;
-    jsonDoc[JSON_COLOR_KEY][JSON_GREEN_KEY] = state->green;
-    jsonDoc[JSON_COLOR_KEY][JSON_BLUE_KEY] = state->blue;
-    jsonDoc[JSON_COLOR_KEY][JSON_WHITE_KEY] = state->white;
-
-    if (state->lightEffect == LightEffect::solid)
-    {
-        jsonDoc[JSON_EFFECT_KEY] = "solid";
-    }
-    else if (state->lightEffect == LightEffect::rainbow)
-    {
-        jsonDoc[JSON_EFFECT_KEY] = "rainbow";
-    }
-    else
-    {
-        // Solid as fallback
-        jsonDoc[JSON_EFFECT_KEY] = "solid";
-    }
-
-    char buffer[512];
-    size_t numberOfBytes = serializeJson(jsonDoc, buffer);
-
-    String topic = _deviceUtils.GetStateTopic();
-
-    Serial.printf("Sending the state update to: '%s'", topic.c_str());
-
-#if DEBUG_MQTT
-
-    Serial.println(F("Light state for MQTT: "));
-    serializeJsonPretty(jsonDoc, Serial);
-    Serial.println(F(""));
-
-#endif
-
-    // TODO: Why is this required to be retained? I dont get it right now.
-    _mqttClient.publish(topic.c_str(), 0, true, buffer, numberOfBytes);
-}
+MqttHandler _mqttHandler(&_deviceUtils, &_ledController);
 
 void connectToWifi()
 {
@@ -128,7 +36,7 @@ void connectToWifi()
 void connectToMqtt()
 {
     Serial.println(F("connecting to MQTT..."));
-    _mqttClient.connect();
+    _mqttHandler.connect();
 }
 
 void wifiEvent(WiFiEvent_t event)
@@ -147,188 +55,10 @@ void wifiEvent(WiFiEvent_t event)
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
         Serial.println(F("WiFi lost connection"));
-        xTimerStop(_mqttReconnectTimer, 0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+        _mqttHandler.stopReconnectTimer(0); // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
         xTimerStart(_wifiReconnectTimer, 0);
         break;
     }
-}
-
-void onMqttConnected(bool sessionPresent)
-{
-    Serial.println(F("Connected to MQTT."));
-
-#if DEBUG_MQTT
-    Serial.println(F("Subscribing for light command topic"));
-#endif
-
-    _mqttClient.subscribe(_deviceUtils.GetCommandTopic().c_str(), 0);
-
-    delay(500);
-
-    mqttAutoDiscovery();
-
-    delay(500);
-
-    sendStateUpdate();
-}
-
-void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
-{
-    Serial.println(F("Disconnected from MQTT."));
-
-    if (WiFi.isConnected())
-    {
-        xTimerStart(_mqttReconnectTimer, 0);
-    }
-}
-
-void onMqttSubscribe(uint16_t packetId, uint8_t qos)
-{
-#if DEBUG_MQTT
-    Serial.println(F("Subscribe acknowledged."));
-    Serial.print(F("  packetId: "));
-    Serial.println(packetId);
-    Serial.print(F("  qos: "));
-    Serial.println(qos);
-#endif
-}
-
-void onMqttUnsubscribe(uint16_t packetId)
-{
-#if DEBUG_MQTT
-    Serial.println(F("Unsubscribe acknowledged."));
-    Serial.print(F("  packetId: "));
-    Serial.println(packetId);
-#endif
-}
-
-void onMqttMessage(char *topic, char *payload, AsyncMqttClientMessageProperties properties, size_t len, size_t index, size_t total)
-{
-    Serial.printf("MQTT message at topic: '%s' received\n", topic);
-
-    StaticJsonDocument<512> jsonDoc;
-    deserializeJson(jsonDoc, payload, len);
-
-    String commandTopic = _deviceUtils.GetCommandTopic();
-
-#if DEBUG_MQTT
-    serializeJsonPretty(jsonDoc, Serial);
-    Serial.println(F(""));
-    Serial.printf("CommandTopic: '%s'", commandTopic.c_str());
-#endif
-
-    if (strcmp(topic, commandTopic.c_str()) == 0)
-    {
-#if DEBUG_MQTT
-        Serial.printf("\nthere was a mqtt message at '%s'\n", commandTopic.c_str());
-#endif
-        LightStateUpdate stateUpdate = LightStateUpdate();
-
-        if (jsonDoc.containsKey(JSON_STATE_KEY))
-        {
-#if DEBUG_MQTT
-            Serial.println(F("Message contains state information"));
-#endif
-            stateUpdate.lightOnPresent = true;
-
-            auto state = jsonDoc[JSON_STATE_KEY];
-            if (strcmp(state, "ON") == 0)
-                stateUpdate.lightOn = true;
-            else if (strcmp(state, "OFF") == 0)
-                stateUpdate.lightOn = false;
-        }
-
-        if (jsonDoc.containsKey(JSON_BRIGHTNESS_KEY))
-        {
-#if DEBUG_MQTT
-            Serial.println(F("Message contains brightness information"));
-#endif
-            stateUpdate.brightnessPresent = true;
-            stateUpdate.brightness = jsonDoc[JSON_BRIGHTNESS_KEY];
-        }
-
-        if (jsonDoc.containsKey(JSON_COLOR_KEY))
-        {
-#if DEBUG_MQTT
-            Serial.println(F("Message contains color information"));
-#endif
-            JsonVariant colorVariant = jsonDoc[JSON_COLOR_KEY];
-
-            if (colorVariant.containsKey(JSON_RED_KEY))
-            {
-#if DEBUG_MQTT
-                Serial.println(F("Message contains color red information"));
-#endif
-                stateUpdate.redPresent = true;
-                stateUpdate.red = colorVariant[JSON_RED_KEY];
-            }
-
-            if (colorVariant.containsKey(JSON_GREEN_KEY))
-            {
-#if DEBUG_MQTT
-                Serial.println(F("Message contains color green information"));
-#endif
-                stateUpdate.greenPresent = true;
-                stateUpdate.green = colorVariant[JSON_GREEN_KEY];
-            }
-
-            if (colorVariant.containsKey(JSON_BLUE_KEY))
-            {
-#if DEBUG_MQTT
-                Serial.println(F("Message contains color blue information"));
-#endif
-                stateUpdate.bluePresent = true;
-                stateUpdate.blue = colorVariant[JSON_BLUE_KEY];
-            }
-
-            if (colorVariant.containsKey(JSON_WHITE_KEY))
-            {
-#if DEBUG_MQTT
-                Serial.println(F("Message contains color white information"));
-#endif
-                stateUpdate.whitePresent = true;
-                stateUpdate.white = colorVariant[JSON_WHITE_KEY];
-            }
-        }
-
-        if (jsonDoc.containsKey(JSON_EFFECT_KEY))
-        {
-#if DEBUG_MQTT
-            Serial.println(F("Message contains effect information"));
-#endif
-            stateUpdate.lightEffectPresent = true;
-
-            String effectString = jsonDoc[JSON_EFFECT_KEY].as<String>();
-
-            if (effectString.equals("solid"))
-            {
-                stateUpdate.lightEffect = LightEffect::solid;
-            }
-            else if (effectString.equals("rainbow"))
-            {
-                stateUpdate.lightEffect = LightEffect::rainbow;
-            }
-            else
-            {
-                stateUpdate.lightEffect = unknown;
-                stateUpdate.lightEffectPresent = false;
-                Serial.printf("light effect: '%s' is not supported\n", effectString.c_str());
-            }
-        }
-
-        _ledController.setState(stateUpdate);
-    }
-
-    sendStateUpdate();
-}
-
-void onMqttPublish(uint16_t packetId)
-{
-#if DEBUG_MQTT
-    Serial.println(F("Publish acknowledged."));
-    Serial.print(F("  packetId: "));
-    Serial.println(packetId);
-#endif
 }
 
 void init_preferences()
@@ -416,18 +146,9 @@ void setup()
     init_preferences();
     initConfig();
 
-    _mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(2000), pdFALSE, (void *)0, reinterpret_cast<TimerCallbackFunction_t>(connectToMqtt));
     _wifiReconnectTimer = xTimerCreate("wifiTimer", pdMS_TO_TICKS(2000), pdFALSE, (void *)0, reinterpret_cast<TimerCallbackFunction_t>(connectToWifi));
 
     WiFi.onEvent(wifiEvent);
-
-    _mqttClient.onConnect(onMqttConnected);
-    _mqttClient.onDisconnect(onMqttDisconnect);
-    _mqttClient.onSubscribe(onMqttSubscribe);
-    _mqttClient.onUnsubscribe(onMqttUnsubscribe);
-    _mqttClient.onMessage(onMqttMessage);
-    _mqttClient.onPublish(onMqttPublish);
-    _mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
 
     _server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
                { request->send(200, "text/plain", "Hi! I am an LED-Controller \n\n OTA should be enabled for this one at: 'http://<IPAddress>/update'"); });
